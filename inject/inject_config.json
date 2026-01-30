@@ -1,0 +1,6 @@
+{
+  "dll_path": ".\\UniversalHookX-Coop.dll",
+  "game_path": ".\\Game.exe",
+  "process_name": "Game.exe",
+  "show_console": true
+}
