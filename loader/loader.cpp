@@ -5,7 +5,7 @@
 #include <string>
 #include <cctype>
 
-struct InjectConfig {
+struct LoaderConfig {
     std::string dll_path = ".\\UniversalHookX-Coop.dll";
     std::string game_path = ".\\Game.exe";
     std::string process_name = "Game.exe";
@@ -168,10 +168,10 @@ static std::wstring ToWide(const std::string& str) {
     return out;
 }
 
-static InjectConfig LoadConfig() {
-    InjectConfig cfg;
+static LoaderConfig LoadConfig() {
+    LoaderConfig cfg;
     const std::string exeDir = GetExeDir();
-    const std::string cfgPath = JoinPath(exeDir, "inject_config.json");
+    const std::string cfgPath = JoinPath(exeDir, "loader_config.json");
     std::string json = ReadTextFile(cfgPath);
     if (json.empty()) {
         std::cout << "Config not found: " << cfgPath << " (using defaults)\n";
@@ -257,13 +257,7 @@ bool InjectDLL(DWORD processID, const char* dllPath) {
     return true;
 }
 
-int main() {
-    InjectConfig cfg = LoadConfig();
-    if (!cfg.show_console) {
-        FreeConsole();
-    }
-
-    const std::string exeDir = GetExeDir();
+static int RunInjection(const LoaderConfig& cfg, const std::string& exeDir) {
     const std::string dllPathResolved = ResolvePath(exeDir, cfg.dll_path);
     const std::string gamePathResolved = ResolvePath(exeDir, cfg.game_path);
 
@@ -274,11 +268,9 @@ int main() {
         return 1;
     }
 
-    STARTUPINFOW si;
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&si, sizeof(si));
+    STARTUPINFOW si = {};
+    PROCESS_INFORMATION pi = {};
     si.cb = sizeof(si);
-    ZeroMemory(&pi, sizeof(pi));
 
     DWORD createFlags = cfg.show_console ? CREATE_NEW_CONSOLE : 0;
     if (!CreateProcessW(gamePathW.c_str(), NULL, NULL, NULL, FALSE, createFlags, NULL, NULL, &si, &pi)) {
@@ -293,7 +285,8 @@ int main() {
         Sleep(100);
     }
 
-    if (InjectDLL(processID, dllPathResolved.c_str())) {
+    const bool injected = InjectDLL(processID, dllPathResolved.c_str());
+    if (injected) {
         std::cout << "DLL injected successfully!" << std::endl;
     } else {
         std::cout << "Failed to inject DLL." << std::endl;
@@ -302,5 +295,15 @@ int main() {
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 
-    return 0;
+    return injected ? 0 : 1;
+}
+
+int main() {
+    LoaderConfig cfg = LoadConfig();
+    if (!cfg.show_console) {
+        FreeConsole();
+    }
+
+    const std::string exeDir = GetExeDir();
+    return RunInjection(cfg, exeDir);
 }
